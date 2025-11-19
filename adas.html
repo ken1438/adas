@@ -3,501 +3,297 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MacroSim: AD-AS Interaction Model</title>
-    
-    <!-- Tailwind CSS -->
+    <title>MacroSim: Advanced AD-AS Model</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    
-    <!-- Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-    </style>
+    <style>body { font-family: 'Inter', sans-serif; }</style>
 </head>
 <body class="bg-slate-50 text-slate-900">
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useMemo } = React;
 
-        // --- Icon Components (Replacements for Lucide-React) ---
+        // --- Icons ---
         const Icons = {
-            ArrowUp: (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>,
-            ArrowDown: (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>,
-            Minus: (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M5 12h14"/></svg>,
-            Info: (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>,
-            RefreshCw: (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>,
-            TrendingUp: (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>,
-            TrendingDown: (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>,
-            DollarSign: (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
-            Activity: (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>,
-            Globe: (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            ArrowUp: (p) => <svg {...p} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>,
+            ArrowDown: (p) => <svg {...p} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>,
+            Minus: (p) => <svg {...p} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14"/></svg>,
+            Info: (p) => <svg {...p} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>,
+            Refresh: (p) => <svg {...p} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>,
+            Settings: (p) => <svg {...p} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
+            Activity: (p) => <svg {...p} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>,
+            TrendingUp: (p) => <svg {...p} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>,
+            Dollar: (p) => <svg {...p} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
+            Globe: (p) => <svg {...p} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>,
+            Users: (p) => <svg {...p} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         };
 
-        // --- Data & Logic ---
+        const INITIAL_STATES = {
+            equilibrium: { id: 'equilibrium', label: 'Long Run Equilibrium', adOffset: 0, description: 'Economy is at full employment (Y = Yf).' },
+            deflationary: { id: 'deflationary', label: 'Deflationary Gap', adOffset: -30, description: 'Economy is below potential (Y < Yf). High unemployment.' },
+            inflationary: { id: 'inflationary', label: 'Inflationary Gap', adOffset: 30, description: 'Economy is above potential (Y > Yf). Labor shortage.' }
+        };
+
+        const VIEW_MODES = {
+            short_run: { id: 'short_run', label: 'Short Run Effect Only' },
+            adjustment: { id: 'adjustment', label: 'Adjustment Process (Market Force)' },
+            long_run: { id: 'long_run', label: 'Final Long Run Equilibrium' }
+        };
+
         const SCENARIOS = [
-          {
-            id: 'base',
-            title: 'Long Run Equilibrium',
-            type: 'neutral',
-            description: 'The economy is operating at full employment output.',
-            curveShifts: { ad: 0, sras: 0, lras: 0 },
-            impacts: {
-              priceLevel: 'Stable',
-              realOutput: 'Full Employment',
-              interestRate: 'Stable',
-              taxRevenue: 'Stable',
-              tradeBalance: 'Balanced'
+            { 
+                id: 'none', title: 'No Shock (Baseline)', type: 'neutral', ad: 0, sras: 0, lras: 0, desc: 'Observe the initial state.',
+                impacts: { price: 'Stable', output: 'Stable', unemploy: 'Stable', interest: 'Stable', tax: 'Stable', trade: 'Stable' }
             },
-            explanation: "The economy is at the intersection of AD, SRAS, and LRAS. There are no shocks."
-          },
-          {
-            id: 'property_boom',
-            title: "Demand Shock: Increase in Property Prices",
-            type: 'demand',
-            shift: 'right',
-            description: "Exogenous increase in property prices raises household wealth.",
-            curveShifts: { ad: 20, sras: 0, lras: 0 },
-            impacts: {
-              priceLevel: 'Increase',
-              realOutput: 'Increase',
-              interestRate: 'Increase', 
-              taxRevenue: 'Increase',
-              tradeBalance: 'Decrease'
+            { 
+                id: 'property_boom', title: 'Demand Shock: Property Boom', type: 'demand', ad: 25, sras: 0, lras: 0, desc: 'Wealth effect increases consumption.',
+                impacts: { price: 'Increase', output: 'Increase', unemploy: 'Decrease', interest: 'Increase', tax: 'Increase', trade: 'Decrease' }
             },
-            explanation: [
-              "1. Rise in property values increases Household Wealth (Wealth Effect).",
-              "2. Households increase private consumption expenditure.",
-              "3. Aggregate Demand (AD) shifts RIGHT.",
-              "4. Result: Higher Price Level and Higher Real Output.",
-              "5. Side Effect: Higher nominal output increases transaction demand for money, pushing Interest Rates UP."
-            ]
-          },
-          {
-            id: 'financial_volatility',
-            title: "Demand Shock: Financial Market Volatility",
-            type: 'demand',
-            shift: 'left',
-            description: "Increased volatility in stock markets increases risk perception.",
-            curveShifts: { ad: -20, sras: 0, lras: 0 },
-            impacts: {
-              priceLevel: 'Decrease',
-              realOutput: 'Decrease',
-              interestRate: 'Increase', 
-              taxRevenue: 'Decrease',
-              tradeBalance: 'Increase'
+            { 
+                id: 'financial_volatility', title: 'Demand Shock: Financial Volatility', type: 'demand', ad: -25, sras: 0, lras: 0, desc: 'Risk rises, asset demand for money rises, r rises, I falls.',
+                impacts: { price: 'Decrease', output: 'Decrease', unemploy: 'Increase', interest: 'Increase', tax: 'Decrease', trade: 'Increase' }
             },
-            explanation: [
-              "1. High volatility increases the Asset Demand for Money (people hoard cash/safe assets).",
-              "2. Increased money demand drives the Interest Rate UP.",
-              "3. Higher interest rates reduce Investment and Consumption.",
-              "4. Aggregate Demand (AD) shifts LEFT.",
-              "5. Result: Lower Price Level and Lower Real Output."
-            ]
-          },
-          {
-            id: 'omo_purchase',
-            title: "Central Bank: Open Market Purchase",
-            type: 'demand',
-            shift: 'right',
-            description: "The Central Bank buys government bonds from the public.",
-            curveShifts: { ad: 20, sras: 0, lras: 0 },
-            impacts: {
-              priceLevel: 'Increase',
-              realOutput: 'Increase',
-              interestRate: 'Decrease',
-              taxRevenue: 'Increase',
-              tradeBalance: 'Decrease'
+            { 
+                id: 'omo_purchase', title: 'Monetary: OMO Purchase', type: 'demand', ad: 25, sras: 0, lras: 0, desc: 'Money supply up, interest rate down, I & C up.',
+                impacts: { price: 'Increase', output: 'Increase', unemploy: 'Decrease', interest: 'Decrease', tax: 'Increase', trade: 'Decrease' }
             },
-            explanation: [
-              "1. Open Market Purchase increases Monetary Base & Money Supply.",
-              "2. Interest Rate falls (Liquidity effect).",
-              "3. Investment & Consumption increase due to lower cost of borrowing.",
-              "4. Aggregate Demand (AD) shifts RIGHT.",
-              "5. Result: Higher Price Level and Higher Real Output.",
-              "6. Side Effect: Higher Output increases Tax Revenue. Higher Prices make exports expensive, worsening Trade Balance."
-            ]
-          },
-          {
-            id: 'omo_sale',
-            title: "Central Bank: Open Market Sale",
-            type: 'demand',
-            shift: 'left',
-            description: "The Central Bank sells government bonds to the public.",
-            curveShifts: { ad: -20, sras: 0, lras: 0 },
-            impacts: {
-              priceLevel: 'Decrease',
-              realOutput: 'Decrease',
-              interestRate: 'Increase',
-              taxRevenue: 'Decrease',
-              tradeBalance: 'Increase'
+            { 
+                id: 'omo_sale', title: 'Monetary: OMO Sale', type: 'demand', ad: -25, sras: 0, lras: 0, desc: 'Money supply down, interest rate up, I & C down.',
+                impacts: { price: 'Decrease', output: 'Decrease', unemploy: 'Increase', interest: 'Increase', tax: 'Decrease', trade: 'Increase' }
             },
-            explanation: [
-              "1. Open Market Sale decreases Money Supply.",
-              "2. Interest Rate rises.",
-              "3. Investment & Consumption decrease.",
-              "4. Aggregate Demand (AD) shifts LEFT.",
-              "5. Result: Lower Price Level and Lower Real Output.",
-              "6. Side Effect: Lower Output reduces Tax Revenue. Lower Prices make exports cheaper, improving Trade Balance."
-            ]
-          },
-          {
-            id: 'tax_increase',
-            title: "Fiscal Policy: Increase Income Tax",
-            type: 'demand',
-            shift: 'left',
-            description: "Government raises the standard rate of salaries tax.",
-            curveShifts: { ad: -20, sras: 0, lras: 0 },
-            impacts: {
-              priceLevel: 'Decrease',
-              realOutput: 'Decrease',
-              interestRate: 'Decrease', 
-              taxRevenue: 'Uncertain',
-              tradeBalance: 'Increase'
+            { 
+                id: 'tax_increase', title: 'Fiscal: Increase Income Tax', type: 'demand', ad: -25, sras: 0, lras: 0, desc: 'Disposable income falls, C falls.',
+                impacts: { price: 'Decrease', output: 'Decrease', unemploy: 'Increase', interest: 'Decrease', tax: 'Uncertain', trade: 'Increase' }
             },
-            note: "Tax Revenue effect is complex (Rate vs Base), but AD clearly falls.",
-            explanation: [
-              "1. Higher Tax reduces Disposable Income.",
-              "2. Private Consumption falls.",
-              "3. Aggregate Demand (AD) shifts LEFT.",
-              "4. Result: Lower Price Level and Lower Real Output.",
-              "5. Side Effect: Lower output lowers money demand, lowering interest rates. Lower prices improve trade balance."
-            ]
-          },
-          {
-            id: 'migration_out',
-            title: "Supply Shock: Migration of Workers Abroad",
-            type: 'supply',
-            shift: 'left',
-            description: "Local workers migrate abroad due to social unrest.",
-            curveShifts: { ad: 0, sras: -20, lras: -20 },
-            impacts: {
-              priceLevel: 'Increase',
-              realOutput: 'Decrease',
-              interestRate: 'Uncertain',
-              taxRevenue: 'Decrease',
-              tradeBalance: 'Decrease'
+            { 
+                id: 'migration_out', title: 'Supply: Migration Abroad', type: 'supply', ad: 0, sras: -20, lras: -20, desc: 'Labor force shrinks, capacity falls.',
+                impacts: { price: 'Increase', output: 'Decrease', unemploy: 'Increase', interest: 'Uncertain', tax: 'Decrease', trade: 'Decrease' }
             },
-            explanation: [
-              "1. Loss of labor force reduces Production Capacity.",
-              "2. LRAS and SRAS shift LEFT.",
-              "3. Result: 'Stagflation' (Higher Price Level, Lower Real Output).",
-              "4. Side Effect: Lower output reduces Tax Revenue. Higher prices make domestic goods expensive, worsening Trade Balance."
-            ]
-          },
-          {
-            id: 'infrastructure',
-            title: "Fiscal: Infrastructure Investment",
-            type: 'mixed',
-            shift: 'right',
-            description: "Govt increases spending on infrastructure (e.g., bridges, AI).",
-            curveShifts: { ad: 15, sras: 10, lras: 10 },
-            impacts: {
-              priceLevel: 'Uncertain',
-              realOutput: 'Increase',
-              interestRate: 'Increase',
-              taxRevenue: 'Increase',
-              tradeBalance: 'Decrease'
+            { 
+                id: 'oil_shock', title: 'Supply: Oil Price Hike', type: 'supply', ad: 0, sras: -25, lras: 0, desc: 'Production costs rise.',
+                impacts: { price: 'Increase', output: 'Decrease', unemploy: 'Increase', interest: 'Uncertain', tax: 'Decrease', trade: 'Decrease' }
             },
-            explanation: [
-              "1. Increased G raises AD immediately.",
-              "2. Better infrastructure improves Productivity, shifting LRAS/SRAS RIGHT.",
-              "3. Result: Significant increase in Real Output.",
-              "4. Price level depends on relative magnitude of shifts, usually rises slightly in SR.",
-            ]
-          },
-          {
-            id: 'oil_shock',
-            title: "Supply Shock: Increase in Oil Prices",
-            type: 'supply',
-            shift: 'left',
-            description: "Cost of imported raw materials/energy increases.",
-            curveShifts: { ad: 0, sras: -20, lras: 0 },
-            impacts: {
-              priceLevel: 'Increase',
-              realOutput: 'Decrease',
-              interestRate: 'Uncertain', // Corrected per user request
-              taxRevenue: 'Decrease',
-              tradeBalance: 'Decrease'
-            },
-            explanation: [
-              "1. Higher input costs increase Cost of Production. SRAS shifts LEFT.",
-              "2. Price Level (P) increases, Real Output (Y) decreases.",
-              "3. Nominal Output = P * Y. Since P rises and Y falls, the effect on nominal output is uncertain.",
-              "4. Result: Transaction demand for money is uncertain, so Interest Rate effect is Uncertain."
-            ]
-          }
+            { 
+                id: 'infrastructure', title: 'Fiscal: Infrastructure', type: 'mixed', ad: 20, sras: 15, lras: 15, desc: 'G rises (AD up) and Productivity rises (AS up).',
+                impacts: { price: 'Uncertain', output: 'Increase', unemploy: 'Decrease', interest: 'Increase', tax: 'Increase', trade: 'Decrease' }
+            }
         ];
 
-        const VariableCard = ({ title, value, icon, colorClass }) => {
-          const IconComponent = Icons[icon];
-          let arrow = <Icons.Minus className="w-5 h-5 text-gray-400" />;
-          let bgColor = "bg-gray-50";
-          let textColor = "text-gray-600";
+        const ImpactCard = ({ label, value, icon: Icon }) => {
+            let color = "text-slate-500 bg-slate-50";
+            if (value === 'Increase') color = "text-green-700 bg-green-50 border-green-100";
+            if (value === 'Decrease') color = "text-red-700 bg-red-50 border-red-100";
+            if (value === 'Uncertain') color = "text-amber-700 bg-amber-50 border-amber-100";
 
-          if (value === 'Increase') {
-            arrow = <Icons.ArrowUp className="w-5 h-5 text-green-600" />;
-            bgColor = "bg-green-50";
-            textColor = "text-green-700";
-          } else if (value === 'Decrease') {
-            arrow = <Icons.ArrowDown className="w-5 h-5 text-red-600" />;
-            bgColor = "bg-red-50";
-            textColor = "text-red-700";
-          } else if (value === 'Uncertain') {
-            arrow = <Icons.Info className="w-5 h-5 text-amber-600" />;
-            bgColor = "bg-amber-50";
-            textColor = "text-amber-700";
-          }
-
-          return (
-            <div className={`p-4 rounded-lg border ${bgColor} shadow-sm flex items-center justify-between transition-all duration-300`}>
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-full bg-white ${colorClass}`}>
-                  <IconComponent className="w-5 h-5" />
+            return (
+                <div className={`flex items-center justify-between p-2 rounded border ${color}`}>
+                    <div className="flex items-center gap-2">
+                        <Icon className="w-4 h-4 opacity-75" />
+                        <span className="text-xs font-semibold uppercase">{label}</span>
+                    </div>
+                    <span className="text-sm font-bold">{value}</span>
                 </div>
-                <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">{title}</p>
-                  <p className={`font-bold ${textColor}`}>{value}</p>
-                </div>
-              </div>
-              {arrow}
-            </div>
-          );
+            );
         };
 
-        const ADASChart = ({ curveShifts }) => {
-          const width = 400;
-          const height = 300;
-          const padding = 40;
-          const originX = padding;
-          const originY = height - padding;
-          const endX = width - padding;
-          const endY = padding;
-          const baseLRASX = (originX + endX) / 2;
-          const lrasX = baseLRASX + curveShifts.lras;
-          const center = { x: width / 2, y: height / 2 };
-          const adShift = curveShifts.ad;
-          const srasShift = curveShifts.sras;
+        const ADASChart = ({ initialState, scenario, viewMode }) => {
+            const width = 500, height = 350, padding = 40;
+            const center = { x: width / 2, y: height / 2 };
+            const slope = (height - 2 * padding) / (width - 2 * padding);
 
-          const eqX = center.x + (adShift + srasShift) / 2;
-          const eqY = center.y - (adShift - srasShift) / 2; 
-          const oldEqX = center.x;
-          const oldEqY = center.y;
+            const initAdShift = INITIAL_STATES[initialState].adOffset;
+            const initSrasShift = 0; 
 
-          return (
-            <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} className="overflow-visible">
-              {/* Axes */}
-              <line x1={originX} y1={originY} x2={endX} y2={originY} stroke="black" strokeWidth="2" markerEnd="url(#arrow)" />
-              <line x1={originX} y1={originY} x2={originX} y2={endY} stroke="black" strokeWidth="2" markerEnd="url(#arrow)" />
-              
-              {/* Labels */}
-              <text x={endX - 10} y={originY + 30} className="text-sm font-bold">Real Output (Y)</text>
-              <text x={originX - 30} y={endY} className="text-sm font-bold" style={{ writingMode: 'vertical-rl' }}>Price Level (P)</text>
+            const shockAd = scenario.ad;
+            const shockSras = scenario.sras;
+            const shockLras = scenario.lras;
 
-              <defs>
-                <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
-                  <path d="M0,0 L0,6 L9,3 z" fill="#000" />
-                </marker>
-              </defs>
+            const srAdShift = initAdShift + shockAd;
+            const srSrasShift = initSrasShift + shockSras;
+            
+            const getEq = (adS, srasS) => ({ 
+                x: center.x + (adS + srasS) / 2, 
+                y: center.y - slope * (adS - srasS) / 2 
+            });
+            
+            // Adjustment Logic
+            const srY_relative = (srAdShift + srSrasShift) / 2; 
+            const gap = srY_relative - shockLras; 
+            const adjustmentNeeded = -gap * 2; 
+            const finalSrasShift = srSrasShift + adjustmentNeeded;
 
-              {/* LRAS Curves */}
-              <line x1={baseLRASX} y1={padding} x2={baseLRASX} y2={height - padding} stroke="#e5e7eb" strokeWidth="2" strokeDasharray="5,5" />
-              <text x={baseLRASX} y={padding - 10} fill="#9ca3af" fontSize="10">LRAS₀</text>
-              
-              <line x1={lrasX} y1={padding} x2={lrasX} y2={height - padding} stroke="#dc2626" strokeWidth="3" className="transition-all duration-700 ease-out" />
-              <text x={lrasX} y={padding - 10} fill="#dc2626" fontSize="12" fontWeight="bold" className="transition-all duration-700 ease-out">LRAS</text>
+            let activeAd = srAdShift;
+            let activeSras = srSrasShift;
+            let ghostAd = initAdShift;
+            let ghostSras = initSrasShift;
+            let ghostLabel = "Initial";
 
-              {/* SRAS Curves */}
-              <line x1={padding} y1={height-padding} x2={width-padding} y2={padding} stroke="#e5e7eb" strokeWidth="2" strokeDasharray="5,5" />
-              <text x={width-padding} y={padding} fill="#9ca3af" fontSize="10">SRAS₀</text>
+            if (viewMode === 'adjustment' || viewMode === 'long_run') {
+                ghostAd = srAdShift;
+                ghostSras = srSrasShift;
+                activeSras = finalSrasShift;
+                ghostLabel = "Short Run";
+            }
 
-              <line 
-                x1={padding + srasShift} y1={height-padding} 
-                x2={width-padding + srasShift} y2={padding} 
-                stroke="#2563eb" strokeWidth="3" 
-                className="transition-all duration-700 ease-out" 
-              />
-              <text x={width-padding + srasShift} y={padding} fill="#2563eb" fontSize="12" fontWeight="bold" className="transition-all duration-700 ease-out">SRAS</text>
+            const getLine = (type, shift) => {
+                if (type === 'LRAS') return { x1: center.x + shift, y1: padding, x2: center.x + shift, y2: height - padding };
+                if (type === 'AD') return { x1: padding + shift, y1: padding, x2: width - padding + shift, y2: height - padding };
+                if (type === 'SRAS') return { x1: padding + shift, y1: height - padding, x2: width - padding + shift, y2: padding };
+            };
 
-              {/* AD Curves */}
-              <line x1={padding} y1={padding} x2={width-padding} y2={height-padding} stroke="#e5e7eb" strokeWidth="2" strokeDasharray="5,5" />
-              <text x={width-padding} y={height-padding} fill="#9ca3af" fontSize="10">AD₀</text>
+            const lrasCoords = getLine('LRAS', shockLras);
+            const adActive = getLine('AD', activeAd);
+            const srasActive = getLine('SRAS', activeSras);
+            const adGhost = getLine('AD', ghostAd);
+            const srasGhost = getLine('SRAS', ghostSras);
 
-              <line 
-                x1={padding + adShift} y1={padding} 
-                x2={width-padding + adShift} y2={height-padding} 
-                stroke="#16a34a" strokeWidth="3" 
-                className="transition-all duration-700 ease-out" 
-              />
-              <text x={width-padding + adShift} y={height-padding} fill="#16a34a" fontSize="12" fontWeight="bold" className="transition-all duration-700 ease-out">AD</text>
+            const showGhost = scenario.id !== 'none' || viewMode !== 'short_run' || initialState !== 'equilibrium';
 
-              {/* Equilibrium Points */}
-              <circle cx={oldEqX} cy={oldEqY} r="4" fill="#9ca3af" />
-              <circle cx={eqX} cy={eqY} r="6" fill="#7c3aed" className="transition-all duration-700 ease-out" />
-              
-              <line x1={eqX} y1={eqY} x2={eqX} y2={originY} stroke="#7c3aed" strokeWidth="1" strokeDasharray="4,4" className="transition-all duration-700 ease-out" />
-              <line x1={eqX} y1={eqY} x2={originX} y2={eqY} stroke="#7c3aed" strokeWidth="1" strokeDasharray="4,4" className="transition-all duration-700 ease-out" />
+            const eqActive = getEq(activeAd, activeSras);
+            const eqGhost = getEq(ghostAd, ghostSras);
+            
+            // Calculate Adjustment Arrow for Long Run
+            const eqSR = getEq(srAdShift, srSrasShift);
+            const eqLR = getEq(srAdShift, finalSrasShift);
 
-              <text x={eqX} y={originY + 15} fill="#7c3aed" fontSize="12" textAnchor="middle" className="transition-all duration-700 ease-out">Y₁</text>
-              <text x={originX - 15} y={eqY + 4} fill="#7c3aed" fontSize="12" textAnchor="end" className="transition-all duration-700 ease-out">P₁</text>
-            </svg>
-          );
+            return (
+                <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} className="overflow-visible font-sans">
+                    <line x1={padding} y1={height-padding} x2={width-padding} y2={height-padding} stroke="black" strokeWidth="2" markerEnd="url(#arrow)" />
+                    <line x1={padding} y1={height-padding} x2={padding} y2={padding} stroke="black" strokeWidth="2" markerEnd="url(#arrow)" />
+                    <text x={width-padding} y={height-padding+30} fontWeight="bold" fontSize="14">Y</text>
+                    <text x={padding-30} y={padding} fontWeight="bold" fontSize="14" style={{writingMode:'vertical-rl'}}>P</text>
+                    <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" /></marker></defs>
+
+                    <line x1={lrasCoords.x1} y1={lrasCoords.y1} x2={lrasCoords.x2} y2={lrasCoords.y2} stroke="#dc2626" strokeWidth="3" />
+                    <text x={lrasCoords.x1} y={padding-10} fill="#dc2626" fontWeight="bold" textAnchor="middle">LRAS</text>
+
+                    {showGhost && (
+                        <>
+                            <line x1={adGhost.x1} y1={adGhost.y1} x2={adGhost.x2} y2={adGhost.y2} stroke="#cbd5e1" strokeWidth="2" strokeDasharray="5,5" />
+                            {activeAd !== ghostAd && <text x={adGhost.x2+5} y={adGhost.y2} fill="#94a3b8" fontSize="12">AD ({ghostLabel})</text>}
+                            <line x1={srasGhost.x1} y1={srasGhost.y1} x2={srasGhost.x2} y2={srasGhost.y2} stroke="#cbd5e1" strokeWidth="2" strokeDasharray="5,5" />
+                            {activeSras !== ghostSras && <text x={srasGhost.x2+5} y={srasGhost.y2} fill="#94a3b8" fontSize="12">SRAS ({ghostLabel})</text>}
+                            <circle cx={eqGhost.x} cy={eqGhost.y} r="4" fill="#cbd5e1" />
+                        </>
+                    )}
+
+                    <line x1={adActive.x1} y1={adActive.y1} x2={adActive.x2} y2={adActive.y2} stroke="#16a34a" strokeWidth="3" className="transition-all duration-700" />
+                    <text x={adActive.x2} y={adActive.y2} fill="#16a34a" fontWeight="bold">AD</text>
+
+                    <line x1={srasActive.x1} y1={srasActive.y1} x2={srasActive.x2} y2={srasActive.y2} stroke="#2563eb" strokeWidth="3" className="transition-all duration-700" />
+                    <text x={srasActive.x2} y={srasActive.y2} fill="#2563eb" fontWeight="bold">SRAS</text>
+
+                    <circle cx={eqActive.x} cy={eqActive.y} r="6" fill="#7c3aed" />
+                    <text x={eqActive.x} y={eqActive.y - 15} textAnchor="middle" fontWeight="bold" fill="#7c3aed">E</text>
+
+                    {viewMode === 'adjustment' && Math.abs(eqLR.x - eqSR.x) > 5 && (
+                        <path d={`M ${eqSR.x} ${eqSR.y} L ${eqLR.x} ${eqLR.y}`} stroke="#94a3b8" strokeWidth="2" strokeDasharray="4,4" markerEnd="url(#arrow)" />
+                    )}
+                </svg>
+            );
         };
 
         function App() {
-          const [selectedScenarioId, setSelectedScenarioId] = useState('base');
-          const scenario = SCENARIOS.find(s => s.id === selectedScenarioId) || SCENARIOS[0];
+            const [initialState, setInitialState] = useState('equilibrium');
+            const [scenarioId, setScenarioId] = useState('none');
+            const [viewMode, setViewMode] = useState('short_run');
 
-          return (
-            <div className="min-h-screen bg-slate-50 text-slate-900 font-sans p-4 md:p-8">
-              <div className="max-w-6xl mx-auto space-y-6">
-                
-                {/* Header */}
-                <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
-                  <div>
-                    <h1 className="text-3xl font-bold text-slate-800">Macroeconomic Simulator</h1>
-                    <p className="text-slate-500 mt-1">Interactive AD-AS Model: Endogenous & Exogenous Interactions</p>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                     <button 
-                      onClick={() => setSelectedScenarioId('base')}
-                      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-md hover:bg-slate-50 transition-colors"
-                    >
-                      <Icons.RefreshCw className="w-4 h-4" /> Reset
-                    </button>
-                  </div>
-                </header>
+            const scenario = SCENARIOS.find(s => s.id === scenarioId);
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                  
-                  {/* Left Column: Controls & Explanation */}
-                  <div className="lg:col-span-4 space-y-6">
-                    
-                    {/* Scenario Selector */}
-                    <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-                      <label className="block text-sm font-semibold text-slate-700 mb-3">Select an Economic Shock (Exogenous Variable)</label>
-                      <select 
-                        value={selectedScenarioId}
-                        onChange={(e) => setSelectedScenarioId(e.target.value)}
-                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium text-slate-700"
-                      >
-                        {SCENARIOS.map(s => (
-                          <option key={s.id} value={s.id}>{s.title}</option>
-                        ))}
-                      </select>
-                      
-                      <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
-                        <h3 className="font-semibold text-blue-800 text-sm mb-1">Event Description</h3>
-                        <p className="text-blue-600 text-sm leading-relaxed">
-                          {scenario.description}
-                        </p>
-                      </div>
-                    </div>
+            const analysis = useMemo(() => {
+                const initGap = INITIAL_STATES[initialState].adOffset;
+                const shockAd = scenario.ad;
+                const shockSras = scenario.sras;
+                const shockLras = scenario.lras;
 
-                    {/* Transmission Mechanism */}
-                    <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex-grow">
-                      <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                        <Icons.Activity className="w-5 h-5 text-purple-600" />
-                        Transmission Mechanism
-                      </h3>
-                      
-                      {Array.isArray(scenario.explanation) ? (
-                        <ul className="space-y-3">
-                          {scenario.explanation.map((step, idx) => (
-                            <li key={idx} className="flex gap-3 text-sm text-slate-600 leading-relaxed">
-                              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-xs font-bold">
-                                {idx + 1}
-                              </span>
-                              <span>{step}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-sm text-slate-600">{scenario.explanation}</p>
-                      )}
+                const srY = (initGap + shockAd + shockSras) / 2;
+                const srGap = srY - shockLras; 
 
-                      {scenario.note && (
-                        <div className="mt-4 text-xs text-slate-400 italic border-t pt-2">
-                          Note: {scenario.note}
+                let gapStatus = "Equilibrium";
+                if (srGap > 2) gapStatus = "Inflationary Gap";
+                if (srGap < -2) gapStatus = "Deflationary Gap";
+
+                let adjText = "No adjustment needed.";
+                if (srGap > 2) adjText = "Excess demand for factors (labor shortage) → Factor prices (wages) rise → SRAS decreases (shifts left) until Y = Yf.";
+                if (srGap < -2) adjText = "Excess supply of factors (unemployment) → Factor prices (wages) fall → SRAS increases (shifts right) until Y = Yf.";
+
+                return { gapStatus, adjText };
+            }, [initialState, scenario]);
+
+            return (
+                <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto">
+                    <header className="mb-8 border-b pb-4">
+                        <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
+                            <Icons.Activity className="text-blue-600"/> MacroSim Advanced
+                        </h1>
+                        <p className="text-slate-500">AD-AS Model with Market Force Adjustments</p>
+                    </header>
+
+                    <div className="grid lg:grid-cols-12 gap-8">
+                        <div className="lg:col-span-4 space-y-6">
+                            <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                                <h3 className="font-bold text-slate-700 mb-3 flex items-center gap-2"><Icons.Settings className="w-4 h-4"/> 1. Initial Context</h3>
+                                <div className="space-y-2">
+                                    {Object.values(INITIAL_STATES).map(state => (
+                                        <button key={state.id} onClick={() => setInitialState(state.id)} className={`w-full text-left p-3 rounded-lg text-sm border transition-all ${initialState === state.id ? 'bg-blue-50 border-blue-500 text-blue-700 ring-1 ring-blue-500' : 'hover:bg-slate-50 border-slate-200'}`}>
+                                            <div className="font-semibold">{state.label}</div>
+                                            <div className="text-xs opacity-75">{state.description}</div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                                <h3 className="font-bold text-slate-700 mb-3 flex items-center gap-2"><Icons.Activity className="w-4 h-4"/> 2. Exogenous Shock</h3>
+                                <select value={scenarioId} onChange={(e) => setScenarioId(e.target.value)} className="w-full p-2 border rounded-md bg-slate-50 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none">
+                                    {SCENARIOS.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
+                                </select>
+                                <p className="mt-3 text-sm text-slate-600 bg-slate-50 p-3 rounded border">{scenario.desc}</p>
+                            </div>
+                             <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                                <h3 className="font-bold text-slate-700 mb-3 flex items-center gap-2"><Icons.Refresh className="w-4 h-4"/> 3. Time Horizon</h3>
+                                <div className="flex flex-col gap-2">
+                                    {Object.values(VIEW_MODES).map(mode => (
+                                        <button key={mode.id} onClick={() => setViewMode(mode.id)} className={`px-4 py-2 rounded text-sm font-medium border transition-colors ${viewMode === mode.id ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
+                                            {mode.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
-                      )}
+                        <div className="lg:col-span-8 space-y-6">
+                            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                                <ADASChart initialState={initialState} scenario={scenario} viewMode={viewMode} />
+                            </div>
+                            <div className="grid md:grid-cols-2 gap-6">
+                                <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                                    <h4 className="font-bold text-slate-800 mb-4 border-b pb-2">Short Run Status</h4>
+                                    <div className="mb-4 flex justify-between items-center">
+                                        <span className="text-sm text-slate-500 font-medium">Output Gap:</span>
+                                        <span className={`text-sm font-bold ${analysis.gapStatus.includes('Inflationary') ? 'text-red-600' : analysis.gapStatus.includes('Deflationary') ? 'text-blue-600' : 'text-green-600'}`}>{analysis.gapStatus}</span>
+                                    </div>
+                                    
+                                    <h5 className="text-xs font-bold text-slate-400 uppercase mb-3 tracking-wider">Endogenous Variables (Shock Impact)</h5>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <ImpactCard label="Price Level" value={scenario.impacts.price} icon={Icons.Dollar} />
+                                        <ImpactCard label="Real Output" value={scenario.impacts.output} icon={Icons.TrendingUp} />
+                                        <ImpactCard label="Unemployment" value={scenario.impacts.unemploy} icon={Icons.Users} />
+                                        <ImpactCard label="Interest Rate" value={scenario.impacts.interest} icon={Icons.Activity} />
+                                        <ImpactCard label="Tax Revenue" value={scenario.impacts.tax} icon={Icons.Dollar} />
+                                        <ImpactCard label="Trade Balance" value={scenario.impacts.trade} icon={Icons.Globe} />
+                                    </div>
+                                </div>
+                                <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                                    <h4 className="font-bold text-slate-800 mb-2 border-b pb-2">Market Adjustment (Long Run)</h4>
+                                    <p className="text-sm text-slate-600 leading-relaxed">{viewMode === 'short_run' ? "Switch view to 'Adjustment Process' to see how the market self-corrects." : analysis.adjText}</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-
-                  </div>
-
-                  {/* Right Column: Visualization & Dashboard */}
-                  <div className="lg:col-span-8 space-y-6">
-                    
-                    {/* Chart Area */}
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                       <div className="flex justify-between items-center mb-2">
-                          <h3 className="font-bold text-slate-800">AD-AS Diagram</h3>
-                          <div className="flex gap-4 text-xs font-medium">
-                             <span className="flex items-center gap-1 text-green-600"><div className="w-3 h-3 bg-green-600 rounded-full"></div> AD</span>
-                             <span className="flex items-center gap-1 text-blue-600"><div className="w-3 h-3 bg-blue-600 rounded-full"></div> SRAS</span>
-                             <span className="flex items-center gap-1 text-red-600"><div className="w-3 h-3 bg-red-600 rounded-full"></div> LRAS</span>
-                          </div>
-                       </div>
-                       <div className="aspect-[16/9] w-full bg-white rounded-lg overflow-hidden relative">
-                          <ADASChart curveShifts={scenario.curveShifts} />
-                       </div>
-                       <p className="text-center text-xs text-slate-400 mt-2">P = Price Level, Y = Real Output, Yf = Potential Output</p>
-                    </div>
-
-                    {/* Variables Dashboard */}
-                    <div>
-                       <h3 className="font-bold text-slate-800 mb-4 ml-1">Impact on Endogenous Variables</h3>
-                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          <VariableCard 
-                            title="Price Level (P)" 
-                            value={scenario.impacts.priceLevel} 
-                            icon="DollarSign"
-                            colorClass="text-blue-600"
-                          />
-                          <VariableCard 
-                            title="Real Output (Y)" 
-                            value={scenario.impacts.realOutput} 
-                            icon="TrendingUp"
-                            colorClass="text-green-600"
-                          />
-                          <VariableCard 
-                            title="Interest Rate (r)" 
-                            value={scenario.impacts.interestRate} 
-                            icon="Activity"
-                            colorClass="text-purple-600"
-                          />
-                          <VariableCard 
-                            title="Tax Revenue (T)" 
-                            value={scenario.impacts.taxRevenue} 
-                            icon="DollarSign"
-                            colorClass="text-amber-600"
-                          />
-                          <VariableCard 
-                            title="Trade Balance (NX)" 
-                            value={scenario.impacts.tradeBalance} 
-                            icon="Globe"
-                            colorClass="text-cyan-600"
-                          />
-                       </div>
-                    </div>
-
-                  </div>
                 </div>
-
-                {/* Footer */}
-                <footer className="text-center text-slate-400 text-sm py-6 border-t border-slate-200">
-                  <p>Based on Macroeconomics Topic 6: Fiscal and Monetary Policies.</p>
-                </footer>
-
-              </div>
-            </div>
-          );
+            );
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
