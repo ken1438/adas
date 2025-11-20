@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MicroSim: Market Efficiency & Intervention</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        .math-font { font-family: 'Times New Roman', Times, serif; font-style: italic; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-900">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useMemo, useEffect } = React;
+
+        // --- Icons ---
+        const Icons = {
+            Settings: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>,
+            Trending: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>,
+            Eye: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>,
+            Book: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>,
+            ArrowUp: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>,
+            ArrowDown: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>,
+            Minus: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        };
+
+        // --- Constants & Data ---
+        const CONTEXTS = [
+            { id: 'free', label: 'Perfect Competition (Free Market)', desc: 'No government intervention. P = MC.' },
+            { id: 'ceiling', label: 'Effective Price Ceiling', desc: 'Max price set below equilibrium. Causes shortage.', paramLabel: 'Ceiling Price' },
+            { id: 'floor', label: 'Effective Price Floor', desc: 'Min price set above equilibrium. Causes surplus.', paramLabel: 'Floor Price' },
+            { id: 'quota', label: 'Effective Production Quota', desc: 'Max quantity limit below equilibrium.', paramLabel: 'Quota Qty' },
+            { id: 'tax', label: 'Per-Unit Tax', desc: 'Tax on sellers. Supply shifts up by tax amount.', paramLabel: 'Tax Amount' },
+            { id: 'subsidy', label: 'Per-Unit Subsidy', desc: 'Subsidy to sellers. Supply shifts down.', paramLabel: 'Subsidy Amount' }
+        ];
+
+        const EVENTS = [
+            { id: 'none', label: 'No Change', type: 'none', desc: 'Initial state.' },
+            { id: 'dem_inc', label: 'Demand Increase', type: 'demand', val: 20, desc: 'e.g., Increase in price of substitute.' },
+            { id: 'dem_dec', label: 'Demand Decrease', type: 'demand', val: -20, desc: 'e.g., Decrease in income (normal good).' },
+            { id: 'sup_inc', label: 'Supply Increase', type: 'supply', val: 20, desc: 'e.g., Decrease in input prices.' },
+            { id: 'sup_dec', label: 'Supply Decrease', type: 'supply', val: -20, desc: 'e.g., Increase in price of by-product (if competitive supply) or input costs.' }
+        ];
+
+        const VISUAL_LAYERS = [
+            { id: 'basic', label: 'Basic Equilibrium (P & Q)' },
+            { id: 'surplus', label: 'Surplus Areas (CS, PS, DL)' },
+            { id: 'expenditure', label: 'Change in Total Expenditure/Revenue' }, 
+        ];
+
+        // --- Math & Logic ---
+        const BASE_PARAMS = {
+            a: 100, // Demand intercept
+            b: 1,   // Demand slope
+            c: 10,  // Supply intercept
+            d: 1    // Supply slope
+        };
+
+        const intersect = (a, b, c, d) => {
+            const Q = (a - c) / (b + d);
+            const P = a - b * Q;
+            return { P, Q };
+        };
+
+        const fmt = (n) => n.toFixed(1);
+
+        // --- Components ---
+
+        const ControlPanel = ({ context, setContext, event, setEvent, layer, setLayer }) => (
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-6">
+                <div>
+                    <h3 className="text-sm font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
+                        <Icons.Settings /> 1. Market Context
+                    </h3>
+                    <div className="space-y-2">
+                        {CONTEXTS.map(c => (
+                            <button 
+                                key={c.id} 
+                                onClick={() => setContext(c.id)}
+                                className={`w-full text-left p-3 rounded-lg text-sm border transition-all ${context === c.id ? 'bg-blue-50 border-blue-500 text-blue-700 ring-1 ring-blue-500' : 'hover:bg-slate-50 border-slate-200 text-slate-700'}`}
+                            >
+                                <div className="font-semibold">{c.label}</div>
+                                <div className="text-xs opacity-70">{c.desc}</div>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div>
+                    <h3 className="text-sm font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
+                        <Icons.Trending /> 2. Exogenous Event
+                    </h3>
+                    <select 
+                        value={event} 
+                        onChange={(e) => setEvent(e.target.value)}
+                        className="w-full p-2 border border-slate-300 rounded-md bg-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    >
+                        {EVENTS.map(e => <option key={e.id} value={e.id}>{e.label}</option>)}
+                    </select>
+                    <p className="mt-2 text-xs text-slate-500 bg-slate-50 p-2 rounded border">
+                        {EVENTS.find(e => e.id === event)?.desc}
+                    </p>
+                </div>
+
+                <div>
+                    <h3 className="text-sm font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
+                        <Icons.Eye /> 3. Visual Layer
+                    </h3>
+                    <div className="grid grid-cols-1 gap-2">
+                        {VISUAL_LAYERS.map(l => (
+                            <button
+                                key={l.id}
+                                onClick={() => setLayer(l.id)}
+                                className={`px-2 py-2 rounded text-xs font-medium border transition-colors text-center ${layer === l.id ? 'bg-purple-100 text-purple-800 border-purple-300' : 'bg-white text-slate-600 hover:bg-slate-50 border-slate-200'}`}
+                            >
+                                {l.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        );
+
+        const ChangeIndicator = ({ val }) => {
+            if (val > 0.1) return <span className="text-green-600 flex items-center gap-1 text-sm font-bold"><Icons.ArrowUp /> Increase</span>;
+            if (val < -0.1) return <span className="text-red-600 flex items-center gap-1 text-sm font-bold"><Icons.ArrowDown /> Decrease</span>;
+            return <span className="text-slate-400 flex items-center gap-1 text-sm font-bold"><Icons.Minus /> No Change</span>;
+        };
+        
+        const ExplanationPanel = ({ contextId, eventId, analysis }) => {
+            const { delta, post } = analysis;
+            
+            const getExplanation = () => {
+                let text = [];
+                const evt = EVENTS.find(e => e.id === eventId);
+                const ctx = CONTEXTS.find(c => c.id === contextId);
+
+                if (evt.type === 'demand') {
+                    text.push(`The ${evt.label.toLowerCase()} shifts the Demand curve ${evt.val > 0 ? 'right' : 'left'}.`);
+                } else if (evt.type === 'supply') {
+                    text.push(`The ${evt.label.toLowerCase()} shifts the Supply curve ${evt.val > 0 ? 'right' : 'left'}.`);
+                } else {
+                    text.push("No exogenous change occurring.");
+                }
+
+                if (contextId === 'free') {
+                    text.push(`In a free market, prices adjust to clear the market.`);
+                } else if (contextId === 'ceiling') {
+                    text.push(`With a Price Ceiling at ${fmt(post.param)}, market clearing is prevented if P* > Ceiling.`);
+                } else if (contextId === 'floor') {
+                    text.push(`With a Price Floor at ${fmt(post.param)}, market clearing is prevented if P* < Floor.`);
+                } else if (contextId === 'quota') {
+                     text.push(`With a Quota at ${fmt(post.param)}, quantity is capped.`);
+                } else if (contextId === 'tax') {
+                    text.push(`A per-unit tax creates a wedge between the price buyers pay (Pb) and sellers receive (Ps).`);
+                } else if (contextId === 'subsidy') {
+                    text.push(`A per-unit subsidy shifts supply down (or creates a wedge).`);
+                }
+
+                if (delta.DL > 0.1) {
+                    text.push(`Inefficiency increases. Deadweight Loss rises.`);
+                } else if (delta.DL < -0.1) {
+                    text.push(`Inefficiency decreases. Deadweight Loss falls.`);
+                }
+                
+                return text;
+            };
+
+            return (
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                        <Icons.Book /> Analysis & Explanation
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 gap-3 mb-6">
+                         <div className="flex justify-between items-center p-3 bg-slate-50 rounded border border-slate-100">
+                            <span className="text-sm font-medium text-slate-600">Price (Buyers pay)</span>
+                            <ChangeIndicator val={delta.P} />
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-slate-50 rounded border border-slate-100">
+                            <span className="text-sm font-medium text-slate-600">Quantity</span>
+                            <ChangeIndicator val={delta.Q} />
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-slate-50 rounded border border-slate-100">
+                            <span className="text-sm font-medium text-slate-600">Consumer Surplus</span>
+                            <ChangeIndicator val={delta.CS} />
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-slate-50 rounded border border-slate-100">
+                            <span className="text-sm font-medium text-slate-600">Producer Surplus</span>
+                            <ChangeIndicator val={delta.PS} />
+                        </div>
+                         <div className="flex justify-between items-center p-3 bg-slate-50 rounded border border-slate-100">
+                            <span className="text-sm font-medium text-slate-600">Total Social Surplus</span>
+                            <ChangeIndicator val={delta.TSS} />
+                        </div>
+                         <div className="flex justify-between items-center p-3 bg-slate-50 rounded border border-slate-100">
+                            <span className="text-sm font-medium text-slate-600">Deadweight Loss</span>
+                            {post.DL > 1 ? <span className="text-red-600 text-sm font-bold">Exists / Increase</span> : <span className="text-slate-400 text-sm font-bold">None / Minimal</span>}
+                        </div>
+                    </div>
+
+                    <div className="text-sm text-slate-500 italic border-t pt-4">
+                        Note: The above indicators show the net change relative to the initial state before the event occurred.
+                    </div>
+                </div>
+            );
+        };
+
+        const MarketGraph = ({ context, event, layer, setAnalysis }) => {
+            let a = BASE_PARAMS.a; 
+            let b = BASE_PARAMS.b; 
+            let c = BASE_PARAMS.c; 
+            let d = BASE_PARAMS.d; 
+
+            // --- 1. Calculate State 1 (Pre-Event) ---
+            const calcState = (evtId) => {
+                let a1 = a, c1 = c;
+                const evt = EVENTS.find(e => e.id === evtId);
+                if (evt.type === 'demand') a1 += evt.val;
+                if (evt.type === 'supply') c1 -= evt.val; 
+                
+                const eq = intersect(a1, b, c1, d);
+                let P_eq = eq.P;
+                let Q_eq = eq.Q;
+
+                let P_act = P_eq, Q_act = Q_eq, P_buyer = P_eq, P_seller = P_eq;
+                let paramVal = 0;
+
+                if (context === 'ceiling') {
+                    paramVal = 40; 
+                    if (P_eq > paramVal) {
+                        P_act = paramVal; P_buyer = paramVal; P_seller = paramVal;
+                        Q_act = (paramVal - c1) / d;
+                    }
+                } else if (context === 'floor') {
+                    paramVal = 70;
+                    if (P_eq < paramVal) {
+                        P_act = paramVal; P_buyer = paramVal; P_seller = paramVal;
+                        Q_act = (paramVal - a1) / -b; 
+                    }
+                } else if (context === 'quota') {
+                    paramVal = 30;
+                    if (Q_eq > paramVal) {
+                        Q_act = paramVal;
+                        P_act = a1 - b * Q_act; 
+                        P_buyer = P_act; P_seller = c1 + d * Q_act; 
+                    }
+                } else if (context === 'tax') {
+                    paramVal = 20; 
+                    const eqTax = intersect(a1, b, c1 + paramVal, d);
+                    Q_act = eqTax.Q; P_buyer = eqTax.P; P_seller = P_buyer - paramVal; P_act = P_buyer;
+                } else if (context === 'subsidy') {
+                    paramVal = 20; 
+                    const eqSub = intersect(a1, b, c1 - paramVal, d);
+                    Q_act = eqSub.Q; P_buyer = eqSub.P; P_seller = P_buyer + paramVal; P_act = P_buyer;
+                }
+
+                // Welfare
+                // CS = Integral (D - Pb)
+                const CS = (a1 * Q_act - 0.5 * b * Math.pow(Q_act, 2)) - (P_buyer * Q_act);
+                // PS = Integral (Ps - S)
+                const PS = (P_seller * Q_act) - (c1 * Q_act + 0.5 * d * Math.pow(Q_act, 2));
+                
+                let govtVal = 0;
+                if (context === 'tax') govtVal = paramVal * Q_act;
+                if (context === 'subsidy') govtVal = -paramVal * Q_act; 
+
+                const TSS = CS + PS + govtVal;
+                
+                // Efficient Q (Unregulated at this event state)
+                const Q_eff = intersect(a1, b, c1, d).Q;
+                const MB_at_Qact = a1 - b * Q_act;
+                const MC_at_Qact = c1 + d * Q_act;
+                const DL = 0.5 * Math.abs(Q_eff - Q_act) * Math.abs(MB_at_Qact - MC_at_Qact);
+
+                return { P: P_act, Q: Q_act, CS, PS, TSS, DL, P_buyer, P_seller, paramVal, a: a1, c: c1, Q_eff };
+            };
+
+            const pre = calcState('none');
+            const post = calcState(event);
+
+            // --- Graphics using 'post' state ---
+            const W = 400, H = 300, PAD = 40;
+            const xScale = (W - 2*PAD) / 100;
+            const yScale = (H - 2*PAD) / 100;
+            const toX = (q) => PAD + q * xScale;
+            const toY = (p) => H - PAD - p * yScale; 
+            const pt = (q, p) => `${toX(q)},${toY(p)}`;
+
+            // Demand Line
+            const D_start = {q: 0, p: post.a};
+            const D_end = {q: 100, p: post.a - b*100}; 
+            // Supply Line
+            const S_start = {q: 0, p: post.c};
+            const S_end = {q: 100, p: post.c + d*100};
+            
+            // Effective Supply Lines (for tax/subsidy visuals)
+            let S_eff_start = S_start, S_eff_end = S_end;
+            if (context === 'tax') {
+                S_eff_start = {q: 0, p: post.c + post.paramVal};
+                S_eff_end = {q: 100, p: post.c + post.paramVal + d*100};
+            } else if (context === 'subsidy') {
+                S_eff_start = {q: 0, p: post.c - post.paramVal};
+                S_eff_end = {q: 100, p: post.c - post.paramVal + d*100};
+            }
+
+            // Areas
+            const polyCS = `${pt(0, post.a)} ${pt(post.Q, post.a - b*post.Q)} ${pt(post.Q, post.P_buyer)} ${pt(0, post.P_buyer)}`;
+            const polyPS = `${pt(0, post.P_seller)} ${pt(post.Q, post.P_seller)} ${pt(post.Q, post.c + d*post.Q)} ${pt(0, post.c)}`;
+            
+            // DL Polygon
+            const Q_eff_post = intersect(post.a, b, post.c, d).Q;
+            const P_eff_post = intersect(post.a, b, post.c, d).P;
+            const MB_at_Qact = post.a - b * post.Q;
+            const MC_at_Qact = post.c + d * post.Q;
+            const polyDL = `${pt(post.Q, MB_at_Qact)} ${pt(post.Q, MC_at_Qact)} ${pt(Q_eff_post, P_eff_post)}`;
+            
+            // Expenditure/Revenue Area
+            // For Tax: Consumer pays P_buyer. Total Exp = P_buyer * Q.
+            // For Subsidy: Consumer pays P_buyer. Total Exp = P_buyer * Q.
+            // But producer receives P_seller. 
+            // Request: "Change in Total Expenditure and Total Revenue net of tax/inclusive of subsidy".
+            // This usually means "Total Expenditure by Consumers" vs "Total Revenue by Producers".
+            // In Tax: TE (Consumers) = P_buyer * Q. TR (Producers, Net) = P_seller * Q.
+            // In Subsidy: TE (Consumers) = P_buyer * Q. TR (Producers, Inclusive) = P_seller * Q.
+            // Let's show the dominant one based on context or both via alpha overlay?
+            // Let's show P_buyer * Q as "TE" and P_seller * Q as "TR" if different.
+            const polyTE = `${pt(0,0)} ${pt(post.Q, 0)} ${pt(post.Q, post.P_buyer)} ${pt(0, post.P_buyer)}`;
+            const polyTR = `${pt(0,0)} ${pt(post.Q, 0)} ${pt(post.Q, post.P_seller)} ${pt(0, post.P_seller)}`;
+            
+            // Ghost Areas for "Change" visualization (Pre-Shock)
+            const polyTE_pre = `${pt(0,0)} ${pt(pre.Q, 0)} ${pt(pre.Q, pre.P_buyer)} ${pt(0, pre.P_buyer)}`;
+            // Note: Pre-shock might also have tax/subsidy depending on logic, but here 'none' event implies same context.
+            // If context has tax, Pre state has tax too.
+            
+            useEffect(() => {
+                setAnalysis({
+                    pre, 
+                    post, 
+                    delta: {
+                        P: post.P - pre.P,
+                        Q: post.Q - pre.Q,
+                        CS: post.CS - pre.CS,
+                        PS: post.PS - pre.PS,
+                        TSS: post.TSS - pre.TSS,
+                        DL: post.DL - pre.DL
+                    }
+                });
+            }, [context, event, setAnalysis, a, b, c, d]);
+
+            return (
+                <div className="relative w-full aspect-video bg-white rounded-lg border border-slate-200 overflow-hidden">
+                    <svg width="100%" height="100%" viewBox={`0 0 ${W} ${H}`}>
+                        {/* Axes */}
+                        <line x1={PAD} y1={H-PAD} x2={W-PAD} y2={H-PAD} stroke="black" strokeWidth="2" markerEnd="url(#arrow)" />
+                        <line x1={PAD} y1={H-PAD} x2={PAD} y2={PAD} stroke="black" strokeWidth="2" markerEnd="url(#arrow)" />
+                        <text x={W-PAD+5} y={H-PAD+5} className="text-xs font-bold">Q</text>
+                        <text x={PAD} y={PAD-10} className="text-xs font-bold">P</text>
+                        <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" /></marker></defs>
+
+                        {/* Layers */}
+                        
+                        {layer === 'surplus' && (
+                            <>
+                                <polygon points={polyCS} fill="rgba(59, 130, 246, 0.2)" />
+                                <polygon points={polyPS} fill="rgba(249, 115, 22, 0.2)" />
+                                {post.DL > 1 && (
+                                    <>
+                                        <polygon points={polyDL} fill="rgba(107, 114, 128, 0.3)" stroke="gray" strokeDasharray="2,2" />
+                                        <text x={toX((post.Q + Q_eff_post)/2)} y={toY((MB_at_Qact + MC_at_Qact)/2)} fill="gray" fontSize="10" fontWeight="bold" textAnchor="middle">DL</text>
+                                    </>
+                                )}
+                                <text x={toX(post.Q/3)} y={toY((post.a + post.P_buyer)/2)} fill="blue" fontSize="10" fontWeight="bold" opacity="0.7">CS</text>
+                                <text x={toX(post.Q/3)} y={toY((post.c + post.P_seller)/2)} fill="orange" fontSize="10" fontWeight="bold" opacity="0.7">PS</text>
+                            </>
+                        )}
+
+                        {layer === 'expenditure' && (
+                            <>
+                                {/* Ghost Pre-Event TE/TR Area for comparison */}
+                                <polygon points={polyTE_pre} fill="none" stroke="#94a3b8" strokeWidth="1" strokeDasharray="4,4" />
+                                
+                                {/* Post-Event Areas */}
+                                {context === 'subsidy' ? (
+                                    <>
+                                        <polygon points={polyTR} fill="rgba(34, 197, 94, 0.2)" stroke="green" />
+                                        <text x={toX(post.Q/2)} y={toY(post.P_seller/2)} fill="green" fontSize="10" fontWeight="bold" textAnchor="middle">TR (Producer)</text>
+                                        <polygon points={polyTE} fill="none" stroke="blue" strokeDasharray="2,2" />
+                                         <text x={toX(post.Q/2)} y={toY(post.P_buyer/2)} fill="blue" fontSize="10" fontWeight="bold" textAnchor="middle">TE (Consumer)</text>
+                                    </>
+                                ) : (
+                                    <>
+                                        <polygon points={polyTE} fill="rgba(34, 197, 94, 0.2)" stroke="green" />
+                                        <text x={toX(post.Q/2)} y={toY(post.P_buyer/2)} fill="green" fontSize="10" fontWeight="bold" textAnchor="middle">TE (Consumer)</text>
+                                        {context === 'tax' && (
+                                            <>
+                                                <polygon points={polyTR} fill="none" stroke="orange" strokeDasharray="2,2" />
+                                                <text x={toX(post.Q/2)} y={toY(post.P_seller/2)} fill="orange" fontSize="10" fontWeight="bold" textAnchor="middle">TR (Net)</text>
+                                            </>
+                                        )}
+                                    </>
+                                )}
+                            </>
+                        )}
+
+                        {/* Curves */}
+                        <line x1={toX(D_start.q)} y1={toY(D_start.p)} x2={toX(D_end.q)} y2={toY(D_end.p)} stroke="#3b82f6" strokeWidth="3" />
+                        <text x={toX(D_end.q)-20} y={toY(D_end.p)-10} fill="#3b82f6" fontWeight="bold" fontSize="12">D</text>
+
+                        {(context === 'tax' || context === 'subsidy') && (
+                             <line x1={toX(S_start.q)} y1={toY(S_start.p)} x2={toX(S_end.q)} y2={toY(S_end.p)} stroke="#cbd5e1" strokeWidth="2" strokeDasharray="4,4" />
+                        )}
+                        
+                        <line x1={toX(S_eff_start.q)} y1={toY(S_eff_start.p)} x2={toX(S_eff_end.q)} y2={toY(S_eff_end.p)} stroke="#f97316" strokeWidth="3" />
+                        <text x={toX(S_eff_end.q)-20} y={toY(S_eff_end.p)-10} fill="#f97316" fontWeight="bold" fontSize="12">S</text>
+
+                        {(context === 'ceiling' || context === 'floor') && (
+                            <line x1={PAD} y1={toY(post.paramVal)} x2={W-PAD} y2={toY(post.paramVal)} stroke="#ef4444" strokeWidth="2" />
+                        )}
+                        {context === 'quota' && (
+                            <line x1={toX(post.paramVal)} y1={PAD} x2={toX(post.paramVal)} y2={H-PAD} stroke="#ef4444" strokeWidth="2" />
+                        )}
+
+                        {/* Equilibrium Points */}
+                        <circle cx={toX(post.Q)} cy={toY(post.P_buyer)} r="4" fill="#3b82f6" />
+                        <text x={toX(post.Q)} y={H-PAD+15} textAnchor="middle" fontSize="11">Q1</text>
+                        <text x={PAD-25} y={toY(post.P_buyer)+4} textAnchor="start" fontSize="11">P1</text>
+                        <line x1={toX(post.Q)} y1={toY(post.P_buyer)} x2={toX(post.Q)} y2={H-PAD} stroke="#94a3b8" strokeWidth="1" strokeDasharray="2,2" />
+                        <line x1={toX(post.Q)} y1={toY(post.P_buyer)} x2={PAD} y2={toY(post.P_buyer)} stroke="#94a3b8" strokeWidth="1" strokeDasharray="2,2" />
+                        
+                        {(context === 'tax' || context === 'subsidy') && (
+                             <>
+                                <circle cx={toX(post.Q)} cy={toY(post.P_seller)} r="4" fill="#f97316" />
+                                <line x1={toX(post.Q)} y1={toY(post.P_seller)} x2={PAD} y2={toY(post.P_seller)} stroke="#94a3b8" strokeWidth="1" strokeDasharray="2,2" />
+                                <text x={PAD-25} y={toY(post.P_seller)+4} textAnchor="start" fontSize="11">Ps</text>
+                             </>
+                        )}
+
+                    </svg>
+                </div>
+            );
+        };
+
+        function App() {
+            const [context, setContext] = useState('free');
+            const [event, setEvent] = useState('none');
+            const [layer, setLayer] = useState('surplus');
+            const [analysis, setAnalysis] = useState({ 
+                pre: {P:0, Q:0, CS:0, PS:0, TSS:0, DL:0}, 
+                post: {P:0, Q:0, CS:0, PS:0, TSS:0, DL:0}, 
+                delta: {P:0, Q:0, CS:0, PS:0, TSS:0, DL:0} 
+            });
+
+            return (
+                <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto">
+                    <header className="mb-8 border-b border-slate-200 pb-4">
+                        <h1 className="text-2xl md:text-3xl font-bold text-slate-800 flex items-center gap-3">
+                            <span className="bg-blue-600 text-white p-2 rounded-lg"><Icons.Trending /></span>
+                            MicroSim
+                        </h1>
+                        <p className="text-slate-500 mt-1">Market Efficiency, Government Intervention, and Welfare Analysis</p>
+                    </header>
+
+                    <div className="grid lg:grid-cols-12 gap-6">
+                        <div className="lg:col-span-3">
+                            <ControlPanel 
+                                context={context} setContext={setContext}
+                                event={event} setEvent={setEvent}
+                                layer={layer} setLayer={setLayer}
+                            />
+                        </div>
+
+                        <div className="lg:col-span-5">
+                            <MarketGraph context={context} event={event} layer={layer} setAnalysis={setAnalysis} />
+                            <div className="mt-4 text-sm text-slate-500 bg-white p-4 rounded border border-slate-200">
+                                <p className="font-semibold mb-1">Visual Guide:</p>
+                                <ul className="list-disc list-inside space-y-1 text-xs">
+                                    <li><span className="text-blue-500 font-bold">Blue Line</span>: Demand (MB)</li>
+                                    <li><span className="text-orange-500 font-bold">Orange Line</span>: Supply (MC)</li>
+                                    <li><span className="text-red-500 font-bold">Red Line</span>: Intervention</li>
+                                    <li><span className="bg-blue-100 px-1 rounded">Blue Area</span>: Consumer Surplus</li>
+                                    <li><span className="bg-orange-100 px-1 rounded">Orange Area</span>: Producer Surplus</li>
+                                    <li><span className="bg-gray-200 px-1 rounded">Gray Area</span>: Deadweight Loss</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div className="lg:col-span-4">
+                            <ExplanationPanel contextId={context} eventId={event} analysis={analysis} />
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
